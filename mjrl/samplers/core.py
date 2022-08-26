@@ -1,4 +1,4 @@
-import logging
+import logging, gym
 import numpy as np
 from mjrl.utils.gym_env import GymEnv
 from mjrl.utils import tensor_utils
@@ -18,6 +18,7 @@ def do_rollout(
         horizon = 1e6,
         base_seed = None,
         env_kwargs=None,
+        parser_args=None
 ):
     """
     :param num_traj:    number of trajectories (int)
@@ -40,6 +41,19 @@ def do_rollout(
     else:
         print("Unsupported environment format")
         raise AttributeError
+
+    if parser_args is not None:
+        if parser_args.record_video and not parser_args.render:
+            env.on_screen = False
+            print(env)
+            record_video_interval = parser_args.record_video_interval
+            record_video_length = parser_args.record_video_length
+            # env.is_vector_env = True
+            env = gym.wrappers.RecordVideo(env, f"data/videos/test",\
+                    step_trigger=lambda step: step % record_video_interval == 0, # record the videos every * steps
+                    video_length=record_video_length) 
+        else:
+            env.on_screen = True
 
     if base_seed is not None:
         env.set_seed(base_seed)
@@ -72,6 +86,8 @@ def do_rollout(
                 a = agent_info['evaluation']
             env_info_base = env.get_env_infos()
             next_o, r, done, env_info_step = env.step(a)
+            if env.on_screen:
+                env.render()
             # below is important to ensure correct env_infos for the timestep
             env_info = env_info_step if env_info_base == {} else env_info_base
             observations.append(o)
@@ -108,18 +124,17 @@ def sample_paths(
         max_timeouts=4,
         suppress_print=False,
         env_kwargs=None,
+        parser_args=None
         ):
-
     num_cpu = 1 if num_cpu is None else num_cpu
     num_cpu = mp.cpu_count() if num_cpu == 'max' else num_cpu
     assert type(num_cpu) == int
-
     if num_cpu == 1:
         input_dict = dict(num_traj=num_traj, env=env, policy=policy,
                           eval_mode=eval_mode, horizon=horizon, base_seed=base_seed,
                           env_kwargs=env_kwargs)
         # dont invoke multiprocessing if not necessary
-        return do_rollout(**input_dict)
+        return do_rollout(**input_dict, parser_args=parser_args)
 
     # do multiprocessing otherwise
     paths_per_cpu = int(np.ceil(num_traj/num_cpu))
@@ -158,6 +173,7 @@ def sample_data_batch(
         num_cpu = 1,
         paths_per_call = 1,
         env_kwargs=None,
+        parser_args=None
         ):
 
     num_cpu = 1 if num_cpu is None else num_cpu
@@ -174,7 +190,7 @@ def sample_data_batch(
         base_seed = base_seed + 12345
         new_paths = sample_paths(paths_per_call * num_cpu, env, policy,
                                  eval_mode, horizon, base_seed, num_cpu,
-                                 suppress_print=True, env_kwargs=env_kwargs)
+                                 suppress_print=True, env_kwargs=env_kwargs, parser_args=parser_args)
         for path in new_paths:
             paths.append(path)
         paths_so_far += len(new_paths)

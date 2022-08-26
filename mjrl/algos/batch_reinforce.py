@@ -16,6 +16,7 @@ import mjrl.samplers.core as trajectory_sampler
 # utility functions
 import mjrl.utils.process_samples as process_samples
 from mjrl.utils.logger import DataLog
+from torch.utils.tensorboard import SummaryWriter
 
 
 class BatchREINFORCE:
@@ -36,6 +37,7 @@ class BatchREINFORCE:
         self.running_score = None
         self.desired_kl = desired_kl
         if save_logs: self.logger = DataLog()
+        self.writer = SummaryWriter(f"runs/")
 
     def CPI_surrogate(self, observations, actions, advantages):
         adv_var = Variable(torch.from_numpy(advantages).float(), requires_grad=False)
@@ -66,8 +68,10 @@ class BatchREINFORCE:
                    gae_lambda=0.97,
                    num_cpu='max',
                    env_kwargs=None,
+                   parser_args=None,
+                   itr=0
                    ):
-
+        self.itr = itr
         # Clean up input arguments
         env = self.env.env_id if env is None else env
         if sample_mode != 'trajectories' and sample_mode != 'samples':
@@ -79,11 +83,11 @@ class BatchREINFORCE:
         if sample_mode == 'trajectories':
             input_dict = dict(num_traj=N, env=env, policy=self.policy, horizon=horizon,
                               base_seed=self.seed, num_cpu=num_cpu, env_kwargs=env_kwargs)
-            paths = trajectory_sampler.sample_paths(**input_dict)
+            paths = trajectory_sampler.sample_paths(**input_dict, parser_args=parser_args)
         elif sample_mode == 'samples':
             input_dict = dict(num_samples=N, env=env, policy=self.policy, horizon=horizon,
                               base_seed=self.seed, num_cpu=num_cpu, env_kwargs=env_kwargs)
-            paths = trajectory_sampler.sample_data_batch(**input_dict)
+            paths = trajectory_sampler.sample_data_batch(**input_dict, parser_args=parser_args)
 
         if self.save_logs:
             self.logger.log_kv('time_sampling', timer.time() - ts)
@@ -108,6 +112,11 @@ class BatchREINFORCE:
             self.logger.log_kv('time_VF', timer.time()-ts)
             self.logger.log_kv('VF_error_before', error_before)
             self.logger.log_kv('VF_error_after', error_after)
+
+            self.writer.add_scalar(f"metric/time_VF", timer.time()-ts, self.itr)
+            self.writer.add_scalar(f"metric/VF_error_before", error_before, self.itr)
+            self.writer.add_scalar(f"metric/VF_error_after", error_after, self.itr)
+
         else:
             self.baseline.fit(paths)
 
@@ -162,6 +171,13 @@ class BatchREINFORCE:
             self.logger.log_kv('kl_dist', kl_dist)
             self.logger.log_kv('surr_improvement', surr_after - surr_before)
             self.logger.log_kv('running_score', self.running_score)
+
+            self.writer.add_scalar(f"metric/alpha", self.alpha, self.itr)
+            self.writer.add_scalar(f"metric/time_vpg", t_gLL, self.itr)
+            self.writer.add_scalar(f"metric/kl_dist", kl_dist, self.itr)
+            self.writer.add_scalar(f"metric/surr_improvement", surr_after - surr_before, self.itr)
+            self.writer.add_scalar(f"metric/running_score", self.running_score, self.itr)
+
             try:
                 self.env.env.env.evaluate_success(paths, self.logger)
             except:
@@ -169,6 +185,8 @@ class BatchREINFORCE:
                 try:
                     success_rate = self.env.env.env.evaluate_success(paths)
                     self.logger.log_kv('success_rate', success_rate)
+                    self.writer.add_scalar(f"metric/success_rate", success_rate, self.itr)
+
                 except:
                     pass
 
@@ -207,8 +225,15 @@ class BatchREINFORCE:
         self.logger.log_kv('stoc_pol_std', std_return)
         self.logger.log_kv('stoc_pol_max', max_return)
         self.logger.log_kv('stoc_pol_min', min_return)
+
+        self.writer.add_scalar(f"metric/stoc_pol_mean", mean_return, self.itr)
+        self.writer.add_scalar(f"metric/stoc_pol_std", std_return, self.itr)
+        self.writer.add_scalar(f"metric/stoc_pol_max", max_return, self.itr)
+        self.writer.add_scalar(f"metric/stoc_pol_min", min_return, self.itr)
+
         try:
             success_rate = self.env.env.env.evaluate_success(paths)
             self.logger.log_kv('rollout_success', success_rate)
+            self.writer.add_scalar(f"metric/rollout_success", success_rate, self.itr)
         except:
             pass

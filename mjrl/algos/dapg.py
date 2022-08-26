@@ -21,6 +21,7 @@ from mjrl.utils.cg_solve import cg_solve
 # Import Algs
 from mjrl.algos.npg_cg import NPG
 from mjrl.algos.behavior_cloning import BC
+from torch.utils.tensorboard import SummaryWriter
 
 class DAPG(NPG):
     def __init__(self, env, policy, baseline,
@@ -50,6 +51,7 @@ class DAPG(NPG):
         self.lam_1 = lam_1
         self.iter_count = 0.0
         if save_logs: self.logger = DataLog()
+        self.writer = SummaryWriter(f"runs/")
 
     def train_from_paths(self, paths):
 
@@ -129,6 +131,15 @@ class DAPG(NPG):
             self.logger.log_kv('kl_dist', kl_dist)
             self.logger.log_kv('surr_improvement', surr_after - surr_before)
             self.logger.log_kv('running_score', self.running_score)
+
+            self.writer.add_scalar(f"metric/alpha", alpha, self.itr)
+            self.writer.add_scalar(f"metric/delta", n_step_size, self.itr)
+            self.writer.add_scalar(f"metric/time_vpg", t_gLL, self.itr)
+            self.writer.add_scalar(f"metric/time_npg", t_FIM, self.itr)
+            self.writer.add_scalar(f"metric/kl_dist", kl_dist, self.itr)
+            self.writer.add_scalar(f"metric/surr_improvement", surr_after - surr_before, self.itr)
+            self.writer.add_scalar(f"metric/running_score", self.running_score, self.itr)
+
             try:
                 self.env.env.env.evaluate_success(paths, self.logger)
             except:
@@ -136,6 +147,8 @@ class DAPG(NPG):
                 try:
                     success_rate = self.env.env.env.evaluate_success(paths)
                     self.logger.log_kv('success_rate', success_rate)
+                    self.writer.add_scalar(f"metric/success_rate", success_rate, self.itr)
+
                 except:
                     pass
         return base_stats

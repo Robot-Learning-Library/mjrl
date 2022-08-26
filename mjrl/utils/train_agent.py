@@ -9,7 +9,7 @@ import numpy as np
 import pickle
 import time as timer
 import os
-import copy
+import copy, gym
 
 
 def _load_latest_policy_and_logs(agent, *, policy_dir, logs_dir):
@@ -59,7 +59,7 @@ def _load_latest_policy_and_logs(agent, *, policy_dir, logs_dir):
     # cannot find any saved policy
     raise RuntimeError("Log file exists, but cannot find any saved policy.")
 
-def train_agent(job_name, agent,
+def train_agent(job_name, agent, parser_args,
                 seed = 0,
                 niter = 101,
                 gamma = 0.995,
@@ -85,7 +85,6 @@ def train_agent(job_name, agent,
     train_curve = best_perf*np.ones(niter)
     mean_pol_perf = 0.0
     e = GymEnv(agent.env.env_id)
-
     # Load from any existing checkpoint, policy, statistics, etc.
     # Why no checkpointing.. :(
     i_start = _load_latest_policy_and_logs(agent,
@@ -104,13 +103,13 @@ def train_agent(job_name, agent,
 
         N = num_traj if sample_mode == 'trajectories' else num_samples
         args = dict(N=N, sample_mode=sample_mode, gamma=gamma, gae_lambda=gae_lambda, num_cpu=num_cpu)
-        stats = agent.train_step(**args)
+        stats = agent.train_step(**args, parser_args=parser_args, itr=i)
         train_curve[i] = stats[0]
 
         if evaluation_rollouts is not None and evaluation_rollouts > 0:
             print("Performing evaluation rollouts ........")
             eval_paths = sample_paths(num_traj=evaluation_rollouts, policy=agent.policy, num_cpu=num_cpu,
-                                      env=e.env_id, eval_mode=True, base_seed=seed)
+                                      env=e.env_id, eval_mode=True, base_seed=seed, parser_args=parser_args)
             mean_pol_perf = np.mean([np.sum(path['rewards']) for path in eval_paths])
             if agent.save_logs:
                 agent.logger.log_kv('eval_score', mean_pol_perf)

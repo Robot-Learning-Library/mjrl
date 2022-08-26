@@ -17,7 +17,9 @@ class GymEnv(object):
     def __init__(self, env, env_kwargs=None,
                  obs_mask=None, act_repeat=1, 
                  *args, **kwargs):
-    
+        self.metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 24}
+        self.on_screen = False
+
         # get the correct env behavior
         if type(env) == str:
             env = gym.make(env)
@@ -102,12 +104,13 @@ class GymEnv(object):
                 if done: break
         return self.obs_mask * obs, cum_reward, done, ifo
 
-    def render(self):
+    def render(self, mode='rgb_array'):
         try:
-            self.env.env.mujoco_render_frames = True
-            self.env.env.mj_render()
+            self.env.env.mujoco_render_frames = False  # False is faster
+            frame = self.env.env.mj_render(self.on_screen)
         except:
-            self.env.render()
+            frame = self.env.render()
+        return frame # so that recorder can capture
 
     def set_seed(self, seed=123):
         try:
