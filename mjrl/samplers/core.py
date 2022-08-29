@@ -132,9 +132,10 @@ def sample_paths(
     if num_cpu == 1:
         input_dict = dict(num_traj=num_traj, env=env, policy=policy,
                           eval_mode=eval_mode, horizon=horizon, base_seed=base_seed,
-                          env_kwargs=env_kwargs)
+                          env_kwargs=env_kwargs,
+                          parser_args=parser_args)
         # dont invoke multiprocessing if not necessary
-        return do_rollout(**input_dict, parser_args=parser_args)
+        return do_rollout(**input_dict, )
 
     # do multiprocessing otherwise
     paths_per_cpu = int(np.ceil(num_traj/num_cpu))
@@ -143,7 +144,8 @@ def sample_paths(
         input_dict = dict(num_traj=paths_per_cpu, env=env, policy=policy,
                           eval_mode=eval_mode, horizon=horizon,
                           base_seed=base_seed + i * paths_per_cpu,
-                          env_kwargs=env_kwargs)
+                          env_kwargs=env_kwargs,
+                          parser_args=parser_args)
         input_dict_list.append(input_dict)
     if suppress_print is False:
         start_time = timer.time()
