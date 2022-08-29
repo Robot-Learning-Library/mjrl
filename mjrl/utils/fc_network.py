@@ -7,6 +7,7 @@ class FCNetwork(nn.Module):
     def __init__(self, obs_dim, act_dim,
                  hidden_sizes=(64,64),
                  nonlinearity='tanh',   # either 'tanh' or 'relu'
+                 output_nonlinearity=None,
                  in_shift = None,
                  in_scale = None,
                  out_shift = None,
@@ -23,6 +24,14 @@ class FCNetwork(nn.Module):
         self.fc_layers = nn.ModuleList([nn.Linear(self.layer_sizes[i], self.layer_sizes[i+1]) \
                          for i in range(len(self.layer_sizes) -1)])
         self.nonlinearity = torch.relu if nonlinearity == 'relu' else torch.tanh
+        self.output_nonlinearity = None
+        if output_nonlinearity is not None:
+            if output_nonlinearity == 'relu':
+                self.output_nonlinearity = torch.relu
+            elif output_nonlinearity == 'sigmoid':
+                self.output_nonlinearity = torch.sigmoid
+            elif output_nonlinearity == 'tanh':
+                self.output_nonlinearity = torch.tanh                
 
     def set_transformations(self, in_shift=None, in_scale=None, out_shift=None, out_scale=None):
         # store native scales that can be used for resets
@@ -48,5 +57,7 @@ class FCNetwork(nn.Module):
             out = self.fc_layers[i](out)
             out = self.nonlinearity(out)
         out = self.fc_layers[-1](out)
+        if self.output_nonlinearity is not None:
+            out = self.output_nonlinearity(out)
         out = out * self.out_scale + self.out_shift
         return out

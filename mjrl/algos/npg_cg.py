@@ -18,6 +18,7 @@ import mjrl.utils.process_samples as process_samples
 from mjrl.utils.logger import DataLog
 from mjrl.utils.cg_solve import cg_solve
 from mjrl.algos.batch_reinforce import BatchREINFORCE
+from torch.utils.tensorboard import SummaryWriter
 
 
 class NPG(BatchREINFORCE):
@@ -58,6 +59,7 @@ class NPG(BatchREINFORCE):
         if self.input_normalization is not None:
             if self.input_normalization > 1 or self.input_normalization <= 0:
                 self.input_normalization = None
+        self.writer = SummaryWriter(f"runs/")
 
     def HVP(self, observations, actions, vector, regu_coef=None):
         regu_coef = self.FIM_invert_args['damping'] if regu_coef is None else regu_coef
@@ -150,6 +152,15 @@ class NPG(BatchREINFORCE):
             self.logger.log_kv('kl_dist', kl_dist)
             self.logger.log_kv('surr_improvement', surr_after - surr_before)
             self.logger.log_kv('running_score', self.running_score)
+
+            self.writer.add_scalar(f"metric/alpha", alpha, self.itr)
+            self.writer.add_scalar(f"metric/delta", n_step_size, self.itr)
+            self.writer.add_scalar(f"metric/time_vpg", t_gLL, self.itr)
+            self.writer.add_scalar(f"metric/time_npg", t_FIM, self.itr)
+            self.writer.add_scalar(f"metric/kl_dist", kl_dist, self.itr)
+            self.writer.add_scalar(f"metric/surr_improvement", surr_after - surr_before, self.itr)
+            self.writer.add_scalar(f"metric/running_score", self.running_score, self.itr)
+
             try:
                 self.env.env.env.evaluate_success(paths, self.logger)
             except:
@@ -157,6 +168,7 @@ class NPG(BatchREINFORCE):
                 try:
                     success_rate = self.env.env.env.evaluate_success(paths)
                     self.logger.log_kv('success_rate', success_rate)
+                    self.writer.add_scalar(f"metric/success_rate", success_rate, self.itr)
                 except:
                     pass
 
