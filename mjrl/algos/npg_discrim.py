@@ -9,12 +9,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import copy
-
-# samplers
-import mjrl.samplers.core as trajectory_sampler
-
 # utility functions
-import mjrl.utils.process_samples as process_samples
 from mjrl.utils.logger import DataLog
 from mjrl.utils.cg_solve import cg_solve
 from mjrl.algos.npg_cg import NPG

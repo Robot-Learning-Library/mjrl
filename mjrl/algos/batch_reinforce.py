@@ -79,7 +79,6 @@ class BatchREINFORCE:
             quit()
 
         ts = timer.time()
-
         if sample_mode == 'trajectories':
             input_dict = dict(num_traj=N, env=env, policy=self.policy, horizon=horizon,
                               base_seed=self.seed, num_cpu=num_cpu, env_kwargs=env_kwargs)

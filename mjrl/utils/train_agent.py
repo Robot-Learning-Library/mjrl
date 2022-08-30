@@ -84,7 +84,32 @@ def train_agent(job_name, agent, parser_args,
     best_perf = -1e8
     train_curve = best_perf*np.ones(niter)
     mean_pol_perf = 0.0
-    e = GymEnv(agent.env.env_id)
+    env = GymEnv(agent.env.env_id)
+    # get the correct env behavior
+    if type(env) == str:
+        env = GymEnv(env)
+    elif isinstance(env, GymEnv):
+        env = env
+    # elif callable(env):
+    #     env = env(**env_kwargs)
+    else:
+        print("Unsupported environment format")
+        raise AttributeError
+
+    if parser_args is not None:
+        if parser_args.record_video and not parser_args.render:
+            env.on_screen = False
+            record_video_interval = parser_args.record_video_interval
+            record_video_length = parser_args.record_video_length
+            # env.is_vector_env = True
+            video_path = "data/videos"
+            current_dir = os.getcwd()
+            env = gym.wrappers.RecordVideo(env, video_path,\
+                    episode_trigger=lambda episode: episode % record_video_interval == 0, # record the videos every * steps
+                    video_length=record_video_length) 
+            print(f'Save video to: {current_dir}/{video_path}')
+        else:
+            env.on_screen = True
     # Load from any existing checkpoint, policy, statistics, etc.
     # Why no checkpointing.. :(
     i_start = _load_latest_policy_and_logs(agent,
@@ -103,18 +128,21 @@ def train_agent(job_name, agent, parser_args,
 
         N = num_traj if sample_mode == 'trajectories' else num_samples
         args = dict(N=N, sample_mode=sample_mode, gamma=gamma, gae_lambda=gae_lambda, num_cpu=num_cpu)
-        stats = agent.train_step(**args, parser_args=parser_args, itr=i)
+        stats = agent.train_step(**args, parser_args=parser_args, itr=i)  # env is not passed in, so create new env instances inside
         train_curve[i] = stats[0]
 
         if evaluation_rollouts is not None and evaluation_rollouts > 0:
             print("Performing evaluation rollouts ........")
-            eval_paths = sample_paths(num_traj=evaluation_rollouts, policy=agent.policy, num_cpu=num_cpu,
-                                      env=e.env_id, eval_mode=True, base_seed=seed, parser_args=parser_args)
+            # eval_paths = sample_paths(num_traj=evaluation_rollouts, policy=agent.policy, num_cpu=num_cpu,
+            #                           env=env.env_id, eval_mode=True, base_seed=seed, parser_args=parser_args)
+            # use single env (num_cpu) for evaluation, also record video here
+            eval_paths = sample_paths(num_traj=evaluation_rollouts, policy=agent.policy, num_cpu=1, 
+                                      env=env, eval_mode=True, base_seed=seed, parser_args=parser_args) 
             mean_pol_perf = np.mean([np.sum(path['rewards']) for path in eval_paths])
             if agent.save_logs:
                 agent.logger.log_kv('eval_score', mean_pol_perf)
                 try:
-                    eval_success = e.env.env.evaluate_success(eval_paths)
+                    eval_success = env.env.env.evaluate_success(eval_paths)
                     agent.logger.log_kv('eval_success', eval_success)
                 except:
                     pass

@@ -1,4 +1,4 @@
-import logging, gym
+import logging, gym, os
 import numpy as np
 from mjrl.utils.gym_env import GymEnv
 from mjrl.utils import tensor_utils
@@ -30,30 +30,16 @@ def do_rollout(
     :param env_kwargs:  dictionary with parameters, will be passed to env generator
     :return:
     """
-
     # get the correct env behavior
     if type(env) == str:
         env = GymEnv(env)
-    elif isinstance(env, GymEnv):
+    elif isinstance(env, GymEnv) or isinstance(env.env, GymEnv): # env might have a wrapper, e.g. RecordVideo
         env = env
     elif callable(env):
         env = env(**env_kwargs)
     else:
         print("Unsupported environment format")
         raise AttributeError
-
-    if parser_args is not None:
-        if parser_args.record_video and not parser_args.render:
-            env.on_screen = False
-            print(env)
-            record_video_interval = parser_args.record_video_interval
-            record_video_length = parser_args.record_video_length
-            # env.is_vector_env = True
-            env = gym.wrappers.RecordVideo(env, f"data/videos/test",\
-                    step_trigger=lambda step: step % record_video_interval == 0, # record the videos every * steps
-                    video_length=record_video_length) 
-        else:
-            env.on_screen = True
 
     if base_seed is not None:
         env.set_seed(base_seed)
