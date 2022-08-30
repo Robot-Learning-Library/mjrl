@@ -106,7 +106,8 @@ def train_agent(job_name, agent, parser_args,
             current_dir = os.getcwd()
             env = gym.wrappers.RecordVideo(env, video_path,\
                     episode_trigger=lambda episode: episode % record_video_interval == 0, # record the videos every * steps
-                    video_length=record_video_length) 
+                    # video_length=record_video_length) # record full episode if uncomment
+                    )
             print(f'Save video to: {current_dir}/{video_path}')
         else:
             env.on_screen = True

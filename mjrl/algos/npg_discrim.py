@@ -72,7 +72,6 @@ class NPGDiscriminator(NPG):
             
         observations, actions, advantages, base_stats, self.running_score = self.process_paths(paths)
         if self.save_logs: self.log_rollout_statistics(paths)
-        
         # Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
         Tensor = torch.FloatTensor
 
