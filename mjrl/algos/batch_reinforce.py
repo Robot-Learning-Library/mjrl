@@ -25,6 +25,7 @@ class BatchREINFORCE:
                  seed=123,
                  desired_kl=None,
                  save_logs=False,
+                 log_dir=None，
                  **kwargs
                  ):
 
@@ -37,8 +38,8 @@ class BatchREINFORCE:
         self.running_score = None
         self.desired_kl = desired_kl
         if save_logs: self.logger = DataLog()
-        self.writer = SummaryWriter(f"runs/")
-
+        self.writer = SummaryWriter(f"runs/{log_dir}")
+        
     def CPI_surrogate(self, observations, actions, advantages):
         adv_var = Variable(torch.from_numpy(advantages).float(), requires_grad=False)
         old_dist_info = self.policy.old_dist_info(observations, actions)

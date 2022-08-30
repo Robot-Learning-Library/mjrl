@@ -34,6 +34,7 @@ class DAPG(NPG):
                  kl_dist=None,
                  lam_0=1.0,  # demo coef
                  lam_1=0.95, # decay coef
+                 log_dir=None,
                  **kwargs,
                  ):
 
@@ -51,7 +52,7 @@ class DAPG(NPG):
         self.lam_1 = lam_1
         self.iter_count = 0.0
         if save_logs: self.logger = DataLog()
-        self.writer = SummaryWriter(f"runs/")
+        self.writer = SummaryWriter(f"runs/{log_dir}")
 
     def train_from_paths(self, paths):
 

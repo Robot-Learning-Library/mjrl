@@ -26,6 +26,7 @@ class NPGDiscriminator(NPG):
                  save_logs=False,
                  kl_dist=None,
                  input_normalization=None,
+                 log_dir=None,
                  **kwargs
                  ):
         """
@@ -56,7 +57,7 @@ class NPGDiscriminator(NPG):
         if self.input_normalization is not None:
             if self.input_normalization > 1 or self.input_normalization <= 0:
                 self.input_normalization = None
-        self.writer = SummaryWriter(f"runs/")
+        self.writer = SummaryWriter(f"runs/{log_dir}")
         # Loss function
         self.adversarial_loss = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=1e-4)

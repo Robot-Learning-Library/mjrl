@@ -31,6 +31,7 @@ class NPG(BatchREINFORCE):
                  save_logs=False,
                  kl_dist=None,
                  input_normalization=None,
+                 log_dir=None,
                  **kwargs
                  ):
         """
@@ -59,7 +60,7 @@ class NPG(BatchREINFORCE):
         if self.input_normalization is not None:
             if self.input_normalization > 1 or self.input_normalization <= 0:
                 self.input_normalization = None
-        self.writer = SummaryWriter(f"runs/")
+        self.writer = SummaryWriter(f"runs/{log_dir}")
 
     def HVP(self, observations, actions, vector, regu_coef=None):
         regu_coef = self.FIM_invert_args['damping'] if regu_coef is None else regu_coef
