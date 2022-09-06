@@ -16,7 +16,9 @@ from mjrl.algos.npg_cg import NPG
 from torch.utils.tensorboard import SummaryWriter
 
 class NPGDiscriminator(NPG):
-    def __init__(self, env, policy, baseline, discriminator, 
+    def __init__(self, env, policy, baseline, discriminator,
+                 frame_num=1,
+                 state_only=False,
                  demo_paths=None,
                  normalized_step_size=0.01,
                  const_learn_rate=None,
@@ -43,6 +45,8 @@ class NPGDiscriminator(NPG):
         self.policy = policy
         self.baseline = baseline
         self.discriminator = discriminator
+        self.frame_num = frame_num
+        self.state_only = state_only
         self.alpha = const_learn_rate
         self.n_step_size = normalized_step_size if kl_dist is None else 2.0 * kl_dist
         self.seed = seed
@@ -62,7 +66,34 @@ class NPGDiscriminator(NPG):
         self.adversarial_loss = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=1e-4)
 
-    # ----------------------------------------------------------
+    def sample_processing(self, obs, act):
+        if self.env.env_id == 'door-v0':
+            process_obs = obs[:, 3:27]
+            process_act = act[:, 4:]   
+        elif self.env.env_id == 'relocate-v0':
+            process_obs = obs[:, 6:30]
+            process_act = act[:, 6:]
+        elif self.env.env_id == 'pen-v0':
+            process_obs = obs[:, :24]
+            process_act = act         
+        elif self.env.env_id == 'hammer-v0':
+            process_obs = obs[:, 2:26]
+            process_act = act[:, 2:]
+        else: raise NotImplementedError
+        return self.framestack(process_obs, process_act)
+
+
+    def framestack(self, obs, act):
+        stack_obs = np.array([obs[i:i+self.frame_num] for i in range(obs.shape[0]-self.frame_num+1)]) # shape: N to N-num+1
+        if self.state_only:
+            processed_sample = stack_obs.reshape(stack_obs.shape[0], -1)
+        else:
+            stack_act = np.array([act[i:i+self.frame_num] for i in range(act.shape[0]-self.frame_num+1)]) # shape: N to N-num+1
+            stack_obs_act = np.concatenate((stack_obs, stack_act), axis=-1)
+            processed_sample = stack_obs_act.reshape(stack_obs_act.shape[0], -1)  # [[sasa...][sasa...]...]
+        
+        return processed_sample
+
     def train_from_paths(self, paths):
 
         # Load demonstrations
@@ -76,8 +107,12 @@ class NPGDiscriminator(NPG):
         Tensor = torch.FloatTensor
 
         # Train discriminator, ref: https://github.com/eriklindernoren/PyTorch-GAN/blob/master/implementations/gan/gan.py
-        demo_sample =  Variable(Tensor(np.concatenate([demo_obs, demo_act], axis=-1)))
-        generated_sample =  Variable(Tensor(np.concatenate([observations, actions], axis=-1)))
+        # demo_sample =  Variable(Tensor(np.concatenate([demo_obs, demo_act], axis=-1)))
+        # generated_sample =  Variable(Tensor(np.concatenate([observations, actions], axis=-1)))
+
+        demo_sample = Variable(Tensor(self.sample_processing(demo_obs, demo_act)))
+        generated_sample = Variable(Tensor(self.sample_processing(observations, actions)))
+
         real = Variable(torch.FloatTensor(demo_sample.size(0), 1).fill_(1.0), requires_grad=False)
         fake = Variable(torch.FloatTensor(generated_sample.size(0), 1).fill_(0.0), requires_grad=False)
         self.optimizer.zero_grad()
@@ -87,7 +122,6 @@ class NPGDiscriminator(NPG):
         d_loss = (real_loss + fake_loss) / 2
         d_loss.backward()
         self.optimizer.step()
-
 
         # Keep track of times for various computations
         t_gLL = 0.0
