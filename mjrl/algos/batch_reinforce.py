@@ -56,7 +56,11 @@ class BatchREINFORCE:
 
     def flat_vpg(self, observations, actions, advantages):
         cpi_surr = self.CPI_surrogate(observations, actions, advantages)
-        vpg_grad = torch.autograd.grad(cpi_surr, self.policy.trainable_params)
+        # add entropy boosting
+        policy_entropy = torch.sum(torch.square(torch.exp(self.policy.log_std))) # for multivariate Gaussian distribution, entropy is ~ \sum_i sigma_i^2
+        objective = cpi_surr + 0.01 * policy_entropy
+        vpg_grad = torch.autograd.grad(objective, self.policy.trainable_params)
+        # vpg_grad = torch.autograd.grad(cpi_surr, self.policy.trainable_params)
         vpg_grad = np.concatenate([g.contiguous().view(-1).data.numpy() for g in vpg_grad])
         return vpg_grad
 
