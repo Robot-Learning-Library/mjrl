@@ -129,17 +129,18 @@ class MujocoEnv(gym.Env):
         # http://vedder.io/misc/mujoco_py.html
         if not on_screen:
             frame = self.sim.render(1024, 1024)  # for off-screen rendering
+            frame = frame[::-1, :, :] # Rendered images are upside-down.
         else:
             try:
                 frame = self.viewer.render()
                 frame = self.viewer.read_pixels(2048, 2048, depth=False) # check function read_pixels() in code: https://github.com/openai/mujoco-py/blob/master/mujoco_py/mjrendercontext.pyx
+
             except:
                 self.mj_viewer_setup()
                 self.viewer._run_speed = 0.5
                 #self.viewer._run_speed /= self.frame_skip
                 frame = self.viewer.render()
 
-        frame = frame[::-1, :, :] # Rendered images are upside-down.
         return frame
 
     def render(self, *args, **kwargs):
