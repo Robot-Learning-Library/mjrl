@@ -3,7 +3,7 @@ logging.disable(logging.CRITICAL)
 import numpy as np
 import scipy as sp
 import scipy.sparse.linalg as spLA
-import copy
+import pickle
 import time as timer
 import torch
 import torch.nn as nn
@@ -32,6 +32,7 @@ class NPG(BatchREINFORCE):
                  kl_dist=None,
                  input_normalization=None,
                  log_dir=None,
+                 save_data=None,
                  **kwargs
                  ):
         """
@@ -54,6 +55,8 @@ class NPG(BatchREINFORCE):
         self.FIM_invert_args = FIM_invert_args
         self.hvp_subsample = hvp_sample_frac
         self.running_score = None
+        self.save_data = save_data
+        self.data_buffer = []
         if save_logs: self.logger = DataLog()
         # input normalization (running average)
         self.input_normalization = input_normalization
@@ -95,6 +98,19 @@ class NPG(BatchREINFORCE):
 
         observations, actions, advantages, base_stats, self.running_score = self.process_paths(paths)
         if self.save_logs: self.log_rollout_statistics(paths)
+
+        # save sample data during training
+        if self.save_data is not None:
+            selected = 10  # how many samples to save per update
+            simple_paths = [{ k: p[k] for k in ['observations', 'actions'] } for p in paths[:selected]]
+            if len(self.data_buffer) == 0:  # empty buffer
+                self.data_buffer = simple_paths
+            else:
+               self.data_buffer = np.concatenate((self.data_buffer, simple_paths))
+            del simple_paths
+        with open(self.save_data+'.pkl', 'wb') as f:
+            pickle.dump(self.data_buffer, f)
+        print('Saved number of data paths: ', len(self.data_buffer))
 
         # Keep track of times for various computations
         t_gLL = 0.0
