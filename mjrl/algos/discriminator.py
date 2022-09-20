@@ -32,9 +32,12 @@ class Discriminator():
         self.save_logs = save_logs
         hand_dim = 24
         if state_only:
-            self.model = FCNetwork(frame_num*hand_dim, 1, hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
+            self.feature = FCNetwork(frame_num*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
         else:
-            self.model = FCNetwork(frame_num*2*hand_dim, 1, hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
+            self.feature = FCNetwork(frame_num*2*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
+        self.discriminator = FCNetwork(hidden_size[-1], 1, hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
+        self.classifier = FCNetwork(hidden_size[-1], 4, hidden_sizes=hidden_size, output_nonlinearity='softmax')
+
         self.itr = itr
 
         self.input_normalization = input_normalization
@@ -44,50 +47,77 @@ class Discriminator():
         self.writer = SummaryWriter(f"runs/{log_dir}")
         # Loss function
         self.adversarial_loss = torch.nn.BCELoss()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
+        self.classify_loss = torch.nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(list(self.feature.parameters()) 
+        + list(self.discriminator.parameters())
+        + list(self.classifier.parameters())
+        , lr=1e-4)
 
-        self.ture_samples = None
+        self.true_samples = None
         self.fake_samples = None
+        self.task_labels = None
+
+    def model(self, x):
+        feature = self.feature(x)
+        x = self.discriminator(feature)
+        return x
+
+    def classify(self, x):
+        feature = self.feature(x)
+        x = self.classifier(feature)
+        return x
 
     def process_data(self, env_id, true_paths, fake_paths,):
+        use_latest_paths = 100
+
         # Load samples
         if true_paths is not None:
             true_obs = np.concatenate([path["observations"] for path in true_paths])
             true_act = np.concatenate([path["actions"] for path in true_paths])
         if fake_paths is not None:
-            fake_obs = np.concatenate([path["observations"] for path in fake_paths])
-            fake_act = np.concatenate([path["actions"] for path in fake_paths])
+            fake_obs = np.concatenate([path["observations"] for path in fake_paths[-use_latest_paths:]])
+            fake_act = np.concatenate([path["actions"] for path in fake_paths[-use_latest_paths:]])
 
         # Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
         Tensor = torch.FloatTensor
-        ture_sample = Variable(Tensor(self.sample_processing(env_id, true_obs, true_act)))
-        fake_sample = Variable(Tensor(self.sample_processing(env_id, fake_obs, fake_act)))
+        ture_sample, _ = self.sample_processing(env_id, true_obs, true_act)
+        fake_sample, task_label = self.sample_processing(env_id, fake_obs, fake_act)
+        ture_sample = Variable(Tensor(ture_sample))
+        fake_sample = Variable(Tensor(fake_sample))
+        task_labels = Variable(torch.FloatTensor(fake_sample.size(0) * [task_label]), requires_grad=False)
 
-        if self.ture_samples is None:
-            self.ture_samples = ture_sample
+        if self.true_samples is None:
+            self.true_samples = ture_sample
         else:
             self.true_samples = torch.cat([self.true_samples, ture_sample])
         if self.fake_samples is None:
             self.fake_samples = fake_sample
         else:
             self.fake_samples = torch.cat([self.fake_samples, fake_sample])
-
+        if self.task_labels is None:
+            self.task_labels = task_labels
+        else:
+            self.task_labels = torch.cat([self.task_labels, task_labels])
 
     def sample_processing(self, env_id, obs, act):
-        if env_id == 'door-v0':
-            process_obs = obs[:, 3:27]
-            process_act = act[:, 4:]   
-        elif env_id == 'relocate-v0':
+        if env_id == 'relocate-v0':
             process_obs = obs[:, 6:30]
             process_act = act[:, 6:]
+            task_label = [1,0,0,0]
         elif env_id == 'pen-v0':
             process_obs = obs[:, :24]
-            process_act = act         
+            process_act = act
+            task_label = [0,1,0,0]
         elif env_id == 'hammer-v0':
             process_obs = obs[:, 2:26]
             process_act = act[:, 2:]
+            task_label = [0,0,1,0]
+        elif env_id == 'door-v0':
+            process_obs = obs[:, 3:27]
+            process_act = act[:, 4:] 
+            task_label = [0,0,0,1]  
         else: raise NotImplementedError
-        return self.framestack(process_obs, process_act)
+        return self.framestack(process_obs, process_act), task_label
 
 
     def framestack(self, obs, act):
@@ -102,22 +132,30 @@ class Discriminator():
         return processed_sample
 
     def train(self, ):
-        real = Variable(torch.FloatTensor(self.ture_samples.size(0), 1).fill_(1.0), requires_grad=False)
+        real = Variable(torch.FloatTensor(self.true_samples.size(0), 1).fill_(1.0), requires_grad=False)
         fake = Variable(torch.FloatTensor(self.fake_samples.size(0), 1).fill_(0.0), requires_grad=False)
 
         for i in range(self.itr):
             # add a sampling scheme
             self.optimizer.zero_grad()
             # Measure discriminator's ability to classify real from generated samples
-            real_loss = self.adversarial_loss(self.model(self.ture_samples), real)
+            real_loss = self.adversarial_loss(self.model(self.true_samples), real)
             fake_loss = self.adversarial_loss(self.model(self.fake_samples), fake)
             d_loss = (real_loss + fake_loss) / 2
-            d_loss.backward()
+
+            # domain classifier
+            c_loss = self.classify_loss(self.classify(self.fake_samples), self.task_labels)
+            # inverse gradient 
+            
+            loss =  d_loss + c_loss
+            loss.backward()
             self.optimizer.step()
 
             # Log information
             if self.save_logs:
                 self.logger.log_kv('discriminator_loss', d_loss.detach().numpy())
+                self.logger.log_kv('classifier_loss', c_loss.detach().numpy())
                 self.writer.add_scalar(f"metric/discriminator_loss", d_loss, i)
+                self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
-            print(f"Step: {i}  |  Discriminator loss: {d_loss}")
+            print(f"Step: {i}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
