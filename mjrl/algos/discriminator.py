@@ -165,10 +165,9 @@ class Discriminator():
                 self.writer.add_scalar(f"metric/discriminator_loss", d_loss, i)
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
-            print(f"Step: {i}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
-
             if i % 100 == 0:
                 self.save_model(path='./model/model')
+                print(f"Step: {i}/{self.itr}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
 
     def save_model(self, path):
         try:  # for PyTorch >= 1.7 to be compatible with loading models from any lower version
