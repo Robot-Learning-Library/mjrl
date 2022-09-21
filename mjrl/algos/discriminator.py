@@ -160,8 +160,8 @@ class Discriminator():
 
             # Log information
             if self.save_logs:
-                self.logger.log_kv('discriminator_loss', d_loss.detach().numpy())
-                self.logger.log_kv('classifier_loss', c_loss.detach().numpy())
+                # self.logger.log_kv('discriminator_loss', d_loss.detach().numpy())
+                # self.logger.log_kv('classifier_loss', c_loss.detach().numpy())
                 self.writer.add_scalar(f"metric/discriminator_loss", d_loss, i)
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
