@@ -2,6 +2,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+class GradientReverse(torch.autograd.Function):
+    scale = 1.0
+    scale = torch.tensor(scale, requires_grad=False)
+    @staticmethod
+    def forward(ctx, x):
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return GradientReverse.scale * grad_output.neg()
+    
+def grad_reverse(x, scale=1.0):
+    GradientReverse.scale = scale
+    return GradientReverse.apply(x)
 
 class FCNetwork(nn.Module):
     def __init__(self, obs_dim, act_dim,

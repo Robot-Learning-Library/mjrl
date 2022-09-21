@@ -7,12 +7,14 @@ import copy
 import time as timer
 import torch
 import torch.nn as nn
+import torch.nn.functional as Function
 from torch.autograd import Variable
 import copy
 # utility functions
-from mjrl.utils.fc_network import FCNetwork
+from mjrl.utils.fc_network import FCNetwork, grad_reverse
 
 from torch.utils.tensorboard import SummaryWriter
+
 
 class Discriminator():
     def __init__(self,
@@ -48,10 +50,9 @@ class Discriminator():
         # Loss function
         self.adversarial_loss = torch.nn.BCELoss()
         self.classify_loss = torch.nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(list(self.feature.parameters()) 
-        + list(self.discriminator.parameters())
-        + list(self.classifier.parameters())
-        , lr=1e-4)
+        self.feature_optimizer = torch.optim.Adam(list(self.feature.parameters()), lr=1e-4)
+        self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=1e-4)
+        self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(), lr=1e-4)
 
         self.true_samples = None
         self.fake_samples = None
@@ -63,12 +64,13 @@ class Discriminator():
         return x
 
     def classify(self, x):
-        feature = self.feature(x)
-        x = self.classifier(feature)
+        x = self.feature(x)
+        x = grad_reverse(x)
+        x = self.classifier(x)
         return x
 
     def process_data(self, env_id, true_paths, fake_paths,):
-        use_latest_paths = 100
+        use_latest_paths = 1000
 
         # Load samples
         if true_paths is not None:
@@ -137,19 +139,24 @@ class Discriminator():
 
         for i in range(self.itr):
             # add a sampling scheme
-            self.optimizer.zero_grad()
+            self.feature_optimizer.zero_grad()
+            self.discriminator_optimizer.zero_grad()
             # Measure discriminator's ability to classify real from generated samples
             real_loss = self.adversarial_loss(self.model(self.true_samples), real)
             fake_loss = self.adversarial_loss(self.model(self.fake_samples), fake)
             d_loss = (real_loss + fake_loss) / 2
+            d_loss.backward(retain_graph = True)
+            self.feature_optimizer.step()
+            self.discriminator_optimizer.step()
 
             # domain classifier
+            self.feature_optimizer.zero_grad()
+            self.classifier_optimizer.zero_grad()
             c_loss = self.classify_loss(self.classify(self.fake_samples), self.task_labels)
-            # inverse gradient 
-            
-            loss =  d_loss + c_loss
-            loss.backward()
-            self.optimizer.step()
+            c_loss.backward(retain_graph = True)
+            self.feature_optimizer.step()
+            self.classifier_optimizer.step()
+            # loss =  d_loss + c_loss
 
             # Log information
             if self.save_logs:
@@ -159,3 +166,26 @@ class Discriminator():
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
             print(f"Step: {i}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
+
+            if i % 100 == 0:
+                self.save_model(path='./model/model')
+
+    def save_model(self, path):
+        try:  # for PyTorch >= 1.7 to be compatible with loading models from any lower version
+            torch.save(self.feature.state_dict(), path+'_feature', _use_new_zipfile_serialization=False) 
+            torch.save(self.discriminator.state_dict(), path+'_discriminator', _use_new_zipfile_serialization=False)
+            torch.save(self.classifier.state_dict(), path+'_classifier', _use_new_zipfile_serialization=False)
+        except:  # for lower versions
+            torch.save(self.feature.state_dict(), path+'_feature')
+            torch.save(self.discriminator.state_dict(), path+'_discriminator')
+            torch.save(self.classifier.state_dict(), path+'_classifier')
+
+    def load_model(self, path, eval=True):
+        self.feature.load_state_dict(torch.load(path+'_feature', map_location=torch.device(self.device)))
+        self.discriminator.load_state_dict(torch.load(path+'_discriminator', map_location=torch.device(self.device)))
+        self.classifier.load_state_dict(torch.load(path+'_classifier', map_location=torch.device(self.device)))
+
+        if eval:
+            self.feature.eval()
+            self.discriminator.eval()
+            self.classifier.eval()            
