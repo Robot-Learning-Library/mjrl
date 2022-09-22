@@ -166,8 +166,8 @@ class Discriminator():
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
             if i % 100 == 0:
-                # self.save_model(path='./model/model')
-                self.jit_save_model(path='./model/model')
+                self.save_model(path='./model/model')
+                # self.jit_save_model(path='./model/model')
                 print(f"Step: {i}/{self.itr}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
 
     def save_model(self, path):
@@ -181,9 +181,10 @@ class Discriminator():
             torch.save(self.classifier.state_dict(), path+'_classifier')
 
     def load_model(self, path, eval=True):
-        self.feature.load_state_dict(torch.load(path+'_feature', map_location=torch.device(self.device)))
-        self.discriminator.load_state_dict(torch.load(path+'_discriminator', map_location=torch.device(self.device)))
-        self.classifier.load_state_dict(torch.load(path+'_classifier', map_location=torch.device(self.device)))
+        # self.feature.load_state_dict(torch.load(path+'_feature', map_location=torch.device(self.device)))
+        self.feature.load_state_dict(torch.load(path+'_feature'))
+        self.discriminator.load_state_dict(torch.load(path+'_discriminator'))
+        self.classifier.load_state_dict(torch.load(path+'_classifier'))
 
         if eval:
             self.feature.eval()

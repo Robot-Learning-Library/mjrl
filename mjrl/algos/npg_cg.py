@@ -18,6 +18,7 @@ import mjrl.utils.process_samples as process_samples
 from mjrl.utils.logger import DataLog
 from mjrl.utils.cg_solve import cg_solve
 from mjrl.algos.batch_reinforce import BatchREINFORCE
+from mjrl.algos.discriminator import Discriminator
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -33,6 +34,7 @@ class NPG(BatchREINFORCE):
                  input_normalization=None,
                  log_dir=None,
                  save_data=None,
+                 discriminator_reward=False,
                  **kwargs
                  ):
         """
@@ -57,6 +59,7 @@ class NPG(BatchREINFORCE):
         self.running_score = None
         self.save_data = save_data
         self.data_buffer = []
+        self.discriminator_reward = discriminator_reward
         if save_logs: self.logger = DataLog()
         # input normalization (running average)
         self.input_normalization = input_normalization
@@ -64,6 +67,22 @@ class NPG(BatchREINFORCE):
             if self.input_normalization > 1 or self.input_normalization <= 0:
                 self.input_normalization = None
         self.writer = SummaryWriter(f"runs/{log_dir}")
+        
+        if self.discriminator_reward:
+            self.model = Discriminator()
+            self.model.load_model(path='./model/model')
+            self.feature = self.model.feature
+            self.discriminator = self.model.discriminator
+
+    def add_reg_reward(self, paths, coef=1.): 
+        for path in paths:
+            sample, _ = self.model.sample_processing(self.env.env_id, path["observations"], path["actions"])
+            sample = torch.FloatTensor(sample)
+            feature = self.feature(sample)
+            reg_rewards = self.discriminator(feature).squeeze().detach().numpy()
+            num_samples = reg_rewards.shape[0]
+            path["rewards"][:num_samples] = coef * reg_rewards + path["rewards"][:num_samples] # due to framestacking the latest (frame_num-1) samples do not have regularization reward
+        self.mean_reg_reward = np.mean(reg_rewards)
 
     def HVP(self, observations, actions, vector, regu_coef=None):
         regu_coef = self.FIM_invert_args['damping'] if regu_coef is None else regu_coef
@@ -108,9 +127,10 @@ class NPG(BatchREINFORCE):
             else:
                self.data_buffer = np.concatenate((self.data_buffer, simple_paths))
             del simple_paths
-        with open(self.save_data+'.pkl', 'wb') as f:
-            pickle.dump(self.data_buffer, f)
-        print('Saved number of data paths: ', len(self.data_buffer))
+        if self.save_data is not None:
+            with open(self.save_data+'.pkl', 'wb') as f:
+                pickle.dump(self.data_buffer, f)
+            print('Saved number of data paths: ', len(self.data_buffer))
 
         # Keep track of times for various computations
         t_gLL = 0.0
@@ -169,6 +189,7 @@ class NPG(BatchREINFORCE):
             self.logger.log_kv('kl_dist', kl_dist)
             self.logger.log_kv('surr_improvement', surr_after - surr_before)
             self.logger.log_kv('running_score', self.running_score)
+            self.logger.log_kv(f"reg_reward", self.mean_reg_reward)
 
             self.writer.add_scalar(f"metric/alpha", alpha, self.itr)
             self.writer.add_scalar(f"metric/delta", n_step_size, self.itr)
@@ -177,6 +198,8 @@ class NPG(BatchREINFORCE):
             self.writer.add_scalar(f"metric/kl_dist", kl_dist, self.itr)
             self.writer.add_scalar(f"metric/surr_improvement", surr_after - surr_before, self.itr)
             self.writer.add_scalar(f"metric/running_score", self.running_score, self.itr)
+            if self.discriminator_reward:
+                self.writer.add_scalar(f"metric/reg_reward", self.mean_reg_reward, self.itr)
 
             try:
                 self.env.env.env.evaluate_success(paths, self.logger)

@@ -98,6 +98,9 @@ class BatchREINFORCE:
 
         self.seed = self.seed + N if self.seed is not None else self.seed
 
+        if self.discriminator_reward:
+            self.add_reg_reward(paths)
+
         # compute returns
         process_samples.compute_returns(paths, gamma)
         # compute advantages
