@@ -166,7 +166,8 @@ class Discriminator():
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
             if i % 100 == 0:
-                self.save_model(path='./model/model')
+                # self.save_model(path='./model/model')
+                self.jit_save_model(path='./model/model')
                 print(f"Step: {i}/{self.itr}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
 
     def save_model(self, path):
@@ -183,6 +184,28 @@ class Discriminator():
         self.feature.load_state_dict(torch.load(path+'_feature', map_location=torch.device(self.device)))
         self.discriminator.load_state_dict(torch.load(path+'_discriminator', map_location=torch.device(self.device)))
         self.classifier.load_state_dict(torch.load(path+'_classifier', map_location=torch.device(self.device)))
+
+        if eval:
+            self.feature.eval()
+            self.discriminator.eval()
+            self.classifier.eval()            
+
+    def jit_save_model(self, path):
+        # check TorchScript model saving
+        # and loading without specifing model class:
+        # https://pytorch.org/tutorials/beginner/saving_loading_models.html
+        feature_scripted = torch.jit.script(self.feature) # Export to TorchScript
+        discriminator_scripted = torch.jit.script(self.discriminator)
+        classifier_scripted = torch.jit.script(self.classifier)
+
+        feature_scripted.save(path+'_feature.pt')
+        discriminator_scripted.save(path+'_discriminator.pt')
+        classifier_scripted.save(path+'_classifier.pt')
+
+    def jit_load_model(self, path, eval=True):
+        self.feature = torch.jit.load(path+'_feature.pt')
+        self.discriminator = torch.jit.load(path+'_discriminator.pt')
+        self.classifier = torch.jit.load(path+'_classifier.pt')
 
         if eval:
             self.feature.eval()
