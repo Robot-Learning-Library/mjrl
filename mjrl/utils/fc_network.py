@@ -37,7 +37,7 @@ class FCNetwork(nn.Module):
         # hidden layers
         self.fc_layers = nn.ModuleList([nn.Linear(self.layer_sizes[i], self.layer_sizes[i+1]) \
                          for i in range(len(self.layer_sizes) -1)])
-        self.layer_idx = list(torch.arange(0, len(self.layer_sizes)-1))
+        # self.layer_idx = list(torch.arange(0, len(self.layer_sizes)-1))
         self.nonlinearity = torch.relu if nonlinearity == 'relu' else torch.tanh
         self.output_nonlinearity = None
         if output_nonlinearity is not None:
@@ -68,8 +68,8 @@ class FCNetwork(nn.Module):
         else:
             out = x
         out = (out - self.in_shift)/(self.in_scale + 1e-8)
-        # for i in range(len(self.fc_layers)-1):  # this does not work with TorchScript
-        for i in self.layer_idx[:1]:
+        for i in range(len(self.fc_layers)-1):  # this does not work with TorchScript
+        # for i in self.layer_idx[:-1]:
             out = self.fc_layers[i](out)
             out = self.nonlinearity(out)
         out = self.fc_layers[-1](out)
