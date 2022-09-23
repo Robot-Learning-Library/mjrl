@@ -118,6 +118,10 @@ class Discriminator():
             process_obs = obs[:, 3:27]
             process_act = act[:, 4:] 
             task_label = [0,0,0,1]  
+        elif env_id == 'hand-v0':
+            process_obs = obs
+            process_act = act
+            task_label = [0,0,0,0]              
         else: raise NotImplementedError
         return self.framestack(process_obs, process_act), task_label
 
