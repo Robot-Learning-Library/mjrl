@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as Function
 from torch.autograd import Variable
 import copy
+import os
 # utility functions
 from mjrl.utils.fc_network import FCNetwork, grad_reverse
 
@@ -34,9 +35,9 @@ class Discriminator():
         self.save_logs = save_logs
         hand_dim = 24
         if state_only:
-            self.feature = FCNetwork(frame_num*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
+            self.feature = FCNetwork(frame_num*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity=None)
         else:
-            self.feature = FCNetwork(frame_num*2*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
+            self.feature = FCNetwork(frame_num*2*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity=None)
         self.discriminator = FCNetwork(hidden_size[-1], 1, hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
         self.classifier = FCNetwork(hidden_size[-1], 4, hidden_sizes=hidden_size, output_nonlinearity='softmax')
 
@@ -140,6 +141,8 @@ class Discriminator():
     def train(self, ):
         real = Variable(torch.FloatTensor(self.true_samples.size(0), 1).fill_(1.0), requires_grad=False)
         fake = Variable(torch.FloatTensor(self.fake_samples.size(0), 1).fill_(0.0), requires_grad=False)
+        model_path = './model/model'
+        os.makedirs(model_path, exist_ok=True) # data saving dir
 
         for i in range(self.itr):
             # add a sampling scheme
@@ -170,8 +173,8 @@ class Discriminator():
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
             if i % 100 == 0:
-                self.save_model(path='./model/model')
-                # self.jit_save_model(path='./model/model')
+                # self.save_model(path='./model/model')
+                self.jit_save_model(path=model_path)
                 print(f"Step: {i}/{self.itr}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
 
     def save_model(self, path):
