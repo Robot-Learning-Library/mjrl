@@ -189,7 +189,6 @@ class NPG(BatchREINFORCE):
             self.logger.log_kv('kl_dist', kl_dist)
             self.logger.log_kv('surr_improvement', surr_after - surr_before)
             self.logger.log_kv('running_score', self.running_score)
-            self.logger.log_kv(f"reg_reward", self.mean_reg_reward)
 
             self.writer.add_scalar(f"metric/alpha", alpha, self.itr)
             self.writer.add_scalar(f"metric/delta", n_step_size, self.itr)
@@ -199,6 +198,7 @@ class NPG(BatchREINFORCE):
             self.writer.add_scalar(f"metric/surr_improvement", surr_after - surr_before, self.itr)
             self.writer.add_scalar(f"metric/running_score", self.running_score, self.itr)
             if self.discriminator_reward:
+                self.logger.log_kv(f"reg_reward", self.mean_reg_reward)
                 self.writer.add_scalar(f"metric/reg_reward", self.mean_reg_reward, self.itr)
 
             try:
