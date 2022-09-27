@@ -75,6 +75,7 @@ class NPG(BatchREINFORCE):
             self.discriminator = self.model.discriminator
 
     def add_reg_reward(self, paths, coef=1.): 
+        all_reg_rewards = []
         for path in paths:
             sample, _ = self.model.sample_processing(self.env.env_id, path["observations"], path["actions"])
             sample = torch.FloatTensor(sample)
@@ -82,7 +83,8 @@ class NPG(BatchREINFORCE):
             reg_rewards = self.discriminator(feature).squeeze().detach().numpy()
             num_samples = reg_rewards.shape[0]
             path["rewards"][:num_samples] = coef * reg_rewards + path["rewards"][:num_samples] # due to framestacking the latest (frame_num-1) samples do not have regularization reward
-        self.mean_reg_reward = np.mean(reg_rewards)
+            all_reg_rewards = np.concatenate([all_reg_rewards, reg_rewards])
+        self.mean_reg_reward = np.mean(all_reg_rewards)
 
     def HVP(self, observations, actions, vector, regu_coef=None):
         regu_coef = self.FIM_invert_args['damping'] if regu_coef is None else regu_coef
