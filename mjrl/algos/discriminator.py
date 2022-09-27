@@ -141,7 +141,7 @@ class Discriminator():
     def train(self, ):
         real = Variable(torch.FloatTensor(self.true_samples.size(0), 1).fill_(1.0), requires_grad=False)
         fake = Variable(torch.FloatTensor(self.fake_samples.size(0), 1).fill_(0.0), requires_grad=False)
-        model_path = './model/model'
+        model_path = './model'
         os.makedirs(model_path, exist_ok=True) # data saving dir
 
         for i in range(self.itr):

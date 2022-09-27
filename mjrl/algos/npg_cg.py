@@ -70,9 +70,17 @@ class NPG(BatchREINFORCE):
         
         if self.discriminator_reward:
             self.model = Discriminator()
+
+            # load standard model, with model class defined
             self.model.load_model(path='./model/model')
             self.feature = self.model.feature
             self.discriminator = self.model.discriminator
+            
+            # load torchscript model, no need for defination of model class
+            self.feature = torch.jit.load('./model/model_feature.pt')
+            self.discriminator = torch.jit.load('./model/model_discriminator.pt')
+            self.feature.eval()
+            self.discriminator.eval()
 
     def add_reg_reward(self, paths, coef=1.): 
         all_reg_rewards = []
