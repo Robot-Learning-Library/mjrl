@@ -12,7 +12,7 @@ from torch.autograd import Variable
 import copy
 import os
 # utility functions
-from mjrl.utils.fc_network import FCNetwork, grad_reverse
+from mjrl.utils.fc_network import JitFCNetwork, grad_reverse
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -35,11 +35,11 @@ class Discriminator():
         self.save_logs = save_logs
         hand_dim = 24
         if state_only:
-            self.feature = FCNetwork(frame_num*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity=None)
+            self.feature = JitFCNetwork(frame_num*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity=None)
         else:
-            self.feature = FCNetwork(frame_num*2*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity=None)
-        self.discriminator = FCNetwork(hidden_size[-1], 1, hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
-        self.classifier = FCNetwork(hidden_size[-1], 4, hidden_sizes=hidden_size, output_nonlinearity='softmax')
+            self.feature = JitFCNetwork(frame_num*2*hand_dim, hidden_size[-1], hidden_sizes=hidden_size, output_nonlinearity=None)
+        self.discriminator = JitFCNetwork(hidden_size[-1], 1, hidden_sizes=hidden_size, output_nonlinearity='sigmoid')
+        self.classifier = JitFCNetwork(hidden_size[-1], 4, hidden_sizes=hidden_size, output_nonlinearity='softmax')
 
         self.itr = itr
 
