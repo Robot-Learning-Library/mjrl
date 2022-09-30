@@ -138,10 +138,9 @@ class Discriminator():
         
         return processed_sample
 
-    def train(self, ):
+    def train(self, model_path='./model'):
         real = Variable(torch.FloatTensor(self.true_samples.size(0), 1).fill_(1.0), requires_grad=False)
         fake = Variable(torch.FloatTensor(self.fake_samples.size(0), 1).fill_(0.0), requires_grad=False)
-        model_path = './model'
         os.makedirs(model_path, exist_ok=True) # data saving dir
 
         for i in range(self.itr):
@@ -173,8 +172,8 @@ class Discriminator():
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
             if i % 100 == 0:
-                # self.save_model(path='./model/model')
-                self.jit_save_model(path=model_path)
+                # self.save_model(path=model_path+'model')
+                self.jit_save_model(path=model_path+'model')
                 print(f"Step: {i}/{self.itr}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
 
     def save_model(self, path):
@@ -189,7 +188,7 @@ class Discriminator():
 
     def load_model(self, path, eval=True):
         # self.feature.load_state_dict(torch.load(path+'_feature', map_location=torch.device(self.device)))
-        self.feature.load_state_dict(torch.load(path+'_feature'))
+        self.feature.load_state_dict(torch.load(path+'feature'))
         self.discriminator.load_state_dict(torch.load(path+'_discriminator'))
         self.classifier.load_state_dict(torch.load(path+'_classifier'))
 
