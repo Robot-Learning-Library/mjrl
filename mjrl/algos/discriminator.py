@@ -188,7 +188,7 @@ class Discriminator():
 
     def load_model(self, path, eval=True):
         # self.feature.load_state_dict(torch.load(path+'_feature', map_location=torch.device(self.device)))
-        self.feature.load_state_dict(torch.load(path+'feature'))
+        self.feature.load_state_dict(torch.load(path+'_feature'))
         self.discriminator.load_state_dict(torch.load(path+'_discriminator'))
         self.classifier.load_state_dict(torch.load(path+'_classifier'))
 
