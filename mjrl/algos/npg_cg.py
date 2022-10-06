@@ -72,7 +72,7 @@ class NPG(BatchREINFORCE):
             self.model = Discriminator()
 
             # load standard model, with model class defined
-            # self.model.load_model(path='./model/model_')
+            # self.model.load_model(path='./model/model')
             # self.feature = self.model.feature
             # self.discriminator = self.model.discriminator
             
