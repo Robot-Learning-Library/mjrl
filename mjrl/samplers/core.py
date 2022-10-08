@@ -141,9 +141,10 @@ def sample_paths(
                                 num_cpu, max_process_time, max_timeouts)
     paths = []
     # result is a paths type and results is list of paths
-    for result in results:
-        for path in result:
-            paths.append(path)  
+    if results is not None:
+        for result in results:
+            for path in result:
+                paths.append(path)  
 
     if suppress_print is False:
         print("======= Samples Gathered  ======= | >>>> Time taken = %f " %(timer.time()-start_time) )
