@@ -77,8 +77,8 @@ class NPG(BatchREINFORCE):
             self.discriminator = self.model.discriminator
             
             # load torchscript model, no need for definition of model class
-            # self.feature = torch.jit.load(f'./model/no_{env.env_id}/model_feature.pt')
-            # self.discriminator = torch.jit.load(f'./model/no_{env.env_id}/model_discriminator.pt')
+            # self.feature = torch.jit.load(f'./jit_model/no_{env.env_id}/model_feature.pt')
+            # self.discriminator = torch.jit.load(f'./jit_model/no_{env.env_id}/model_discriminator.pt')
             # self.feature.eval()
             # self.discriminator.eval()
 

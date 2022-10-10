@@ -179,8 +179,8 @@ class Discriminator():
                 self.writer.add_scalar(f"metric/classifier_loss", c_loss, i)
 
             if i % 100 == 0:
-                # self.save_model(path=model_path+'model')
-                self.jit_save_model(path=model_path+'model')
+                self.save_model(path=model_path+'model')
+                # self.jit_save_model(path=model_path+'model')
                 print(f"Step: {i}/{self.itr}  |  Discriminator loss: {d_loss} |  Classifier loss: {c_loss}")
 
     def save_model(self, path):
