@@ -98,12 +98,15 @@ class NPG(BatchREINFORCE):
             if self.adaptive_scale: # adaptive scale reg reward: adapt to task reward scale
                 self.smooth_task_r = 0.9 * self.smooth_task_r + 0.1 * np.mean(path["rewards"])
                 reg_rewards = coef*reg_rewards*np.abs(self.smooth_task_r) # due to framestacking the latest (frame_num-1) samples do not have regularization reward
+                self.reg_reward_scale = coef * np.abs(self.smooth_task_r)
             else:  # fixed scale reg reward: coef*[0,1], coef=1 by default
                 reg_rewards = coef*reg_rewards
+                self.reg_reward_scale = coef
 
             path["rewards"][:num_samples] = reg_rewards + path["rewards"][:num_samples]  
             all_reg_rewards = np.concatenate([all_reg_rewards, reg_rewards])
         self.mean_reg_reward = np.mean(all_reg_rewards)
+        
 
     def HVP(self, observations, actions, vector, regu_coef=None):
         regu_coef = self.FIM_invert_args['damping'] if regu_coef is None else regu_coef
@@ -222,7 +225,8 @@ class NPG(BatchREINFORCE):
             if self.discriminator_reward:
                 self.logger.log_kv(f"reg_reward", self.mean_reg_reward)
                 self.writer.add_scalar(f"metric/reg_reward", self.mean_reg_reward, self.itr)
-
+                self.logger.log_kv(f"reg_reward_scale", self.reg_reward_scale)
+                self.writer.add_scalar(f"metric/reg_reward_scale", self.reg_reward_scale, self.itr)
             try:
                 self.env.env.env.evaluate_success(paths, self.logger)
             except:
