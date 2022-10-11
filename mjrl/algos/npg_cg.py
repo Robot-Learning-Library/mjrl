@@ -60,6 +60,7 @@ class NPG(BatchREINFORCE):
         self.save_data = save_data
         self.data_buffer = []
         self.discriminator_reward = discriminator_reward
+        self.mean_reg_reward = 0
         if save_logs: self.logger = DataLog()
         # input normalization (running average)
         self.input_normalization = input_normalization

@@ -74,7 +74,7 @@ class BatchREINFORCE:
                    num_cpu='max',
                    env_kwargs=None,
                    parser_args=None,
-                   itr=0
+                   itr=0,
                    ):
         self.itr = itr
         # Clean up input arguments
@@ -97,9 +97,10 @@ class BatchREINFORCE:
             self.logger.log_kv('time_sampling', timer.time() - ts)
 
         self.seed = self.seed + N if self.seed is not None else self.seed
-
-        if self.discriminator_reward:
-            self.add_reg_reward(paths)
+        
+        if self.itr > int(parser_args.warm_up):
+            if self.discriminator_reward:
+                self.add_reg_reward(paths)
 
         if len(paths) > 0:
             # compute returns
