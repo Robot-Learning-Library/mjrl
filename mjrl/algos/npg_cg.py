@@ -122,6 +122,17 @@ class NPG(BatchREINFORCE):
             return Hvp
         return eval
 
+    def _save_data(self, paths, select_path_num=10):  #select_path_num: how many samples to save per update
+        simple_paths = [{ k: p[k] for k in ['observations', 'actions'] } for p in paths[:select_path_num]]
+        if len(self.data_buffer) == 0:  # empty buffer
+            self.data_buffer = simple_paths
+        else:
+            self.data_buffer = np.concatenate((self.data_buffer, simple_paths))
+        del simple_paths
+        with open(self.save_data+'.pkl', 'wb') as f:
+            pickle.dump(self.data_buffer, f)
+        print('Saved number of data paths: ', len(self.data_buffer))    
+
     # ----------------------------------------------------------
     def train_from_paths(self, paths):
 
@@ -130,17 +141,7 @@ class NPG(BatchREINFORCE):
 
         # save sample data during training
         if self.save_data is not None:
-            selected = 10  # how many samples to save per update
-            simple_paths = [{ k: p[k] for k in ['observations', 'actions'] } for p in paths[:selected]]
-            if len(self.data_buffer) == 0:  # empty buffer
-                self.data_buffer = simple_paths
-            else:
-               self.data_buffer = np.concatenate((self.data_buffer, simple_paths))
-            del simple_paths
-        if self.save_data is not None:
-            with open(self.save_data+'.pkl', 'wb') as f:
-                pickle.dump(self.data_buffer, f)
-            print('Saved number of data paths: ', len(self.data_buffer))
+            self._save_data(paths)
 
         # Keep track of times for various computations
         t_gLL = 0.0
