@@ -35,6 +35,7 @@ class NPG(BatchREINFORCE):
                  log_dir=None,
                  save_data=None,
                  discriminator_reward=False,
+                 adaptive_scale=False,
                  **kwargs
                  ):
         """
@@ -60,6 +61,8 @@ class NPG(BatchREINFORCE):
         self.save_data = save_data
         self.data_buffer = []
         self.discriminator_reward = discriminator_reward
+        self.adaptive_scale = adaptive_scale
+        self.smooth_task_r = 0.
         self.mean_reg_reward = 0
         if save_logs: self.logger = DataLog()
         # input normalization (running average)
@@ -83,7 +86,7 @@ class NPG(BatchREINFORCE):
             self.feature.eval()
             self.discriminator.eval()
 
-    def add_reg_reward(self, paths, coef=1.): 
+    def add_reg_reward(self, paths, coef=0.5): 
         all_reg_rewards = []
         for path in paths:
             sample, _ = self.model.sample_processing(self.env.env_id, path["observations"], path["actions"])
@@ -91,7 +94,14 @@ class NPG(BatchREINFORCE):
             feature = self.feature(sample)
             reg_rewards = self.discriminator(feature).squeeze().detach().numpy()
             num_samples = reg_rewards.shape[0]
-            path["rewards"][:num_samples] = coef * reg_rewards + path["rewards"][:num_samples] # due to framestacking the latest (frame_num-1) samples do not have regularization reward
+
+            if self.adaptive_scale: # adaptive scale reg reward: adapt to task reward scale
+                self.smooth_task_r = 0.9 * self.smooth_task_r + 0.1 * np.mean(path["rewards"])
+                reg_rewards = coef*reg_rewards*np.abs(self.smooth_task_r) # due to framestacking the latest (frame_num-1) samples do not have regularization reward
+            else:  # fixed scale reg reward: coef*[0,1], coef=1 by default
+                reg_rewards = coef*reg_rewards
+
+            path["rewards"][:num_samples] = reg_rewards + path["rewards"][:num_samples]  
             all_reg_rewards = np.concatenate([all_reg_rewards, reg_rewards])
         self.mean_reg_reward = np.mean(all_reg_rewards)
 

@@ -98,7 +98,7 @@ class BatchREINFORCE:
 
         self.seed = self.seed + N if self.seed is not None else self.seed
         
-        if self.itr > int(parser_args.warm_up):
+        if self.itr >= int(parser_args.warm_up):
             if self.discriminator_reward:
                 self.add_reg_reward(paths)
 
