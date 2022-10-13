@@ -74,7 +74,7 @@ class BatchREINFORCE:
                    num_cpu='max',
                    env_kwargs=None,
                    parser_args=None,
-                   itr=0
+                   itr=0,
                    ):
         self.itr = itr
         # Clean up input arguments
@@ -97,37 +97,41 @@ class BatchREINFORCE:
             self.logger.log_kv('time_sampling', timer.time() - ts)
 
         self.seed = self.seed + N if self.seed is not None else self.seed
+        
+        if self.itr >= int(parser_args.warm_up):
+            if self.discriminator_reward:
+                self.add_reg_reward(paths)
 
-        if self.discriminator_reward:
-            self.add_reg_reward(paths)
+        if len(paths) > 0:
+            # compute returns
+            process_samples.compute_returns(paths, gamma)
+            # compute advantages
+            process_samples.compute_advantages(paths, self.baseline, gamma, gae_lambda)
+            # train from paths
+            eval_statistics = self.train_from_paths(paths)
+            eval_statistics.append(N)
+            # log number of samples
+            if self.save_logs:
+                num_samples = np.sum([p["rewards"].shape[0] for p in paths])
+                self.logger.log_kv('num_samples', num_samples)
+            # fit baseline
+            if self.save_logs:
+                ts = timer.time()
+                error_before, error_after = self.baseline.fit(paths, return_errors=True)
+                self.logger.log_kv('time_VF', timer.time()-ts)
+                self.logger.log_kv('VF_error_before', error_before)
+                self.logger.log_kv('VF_error_after', error_after)
 
-        # compute returns
-        process_samples.compute_returns(paths, gamma)
-        # compute advantages
-        process_samples.compute_advantages(paths, self.baseline, gamma, gae_lambda)
-        # train from paths
-        eval_statistics = self.train_from_paths(paths)
-        eval_statistics.append(N)
-        # log number of samples
-        if self.save_logs:
-            num_samples = np.sum([p["rewards"].shape[0] for p in paths])
-            self.logger.log_kv('num_samples', num_samples)
-        # fit baseline
-        if self.save_logs:
-            ts = timer.time()
-            error_before, error_after = self.baseline.fit(paths, return_errors=True)
-            self.logger.log_kv('time_VF', timer.time()-ts)
-            self.logger.log_kv('VF_error_before', error_before)
-            self.logger.log_kv('VF_error_after', error_after)
+                self.writer.add_scalar(f"metric/time_VF", timer.time()-ts, self.itr)
+                self.writer.add_scalar(f"metric/VF_error_before", error_before, self.itr)
+                self.writer.add_scalar(f"metric/VF_error_after", error_after, self.itr)
 
-            self.writer.add_scalar(f"metric/time_VF", timer.time()-ts, self.itr)
-            self.writer.add_scalar(f"metric/VF_error_before", error_before, self.itr)
-            self.writer.add_scalar(f"metric/VF_error_after", error_after, self.itr)
+            else:
+                self.baseline.fit(paths)
 
+            return eval_statistics
         else:
-            self.baseline.fit(paths)
-
-        return eval_statistics
+            return None
 
     # ----------------------------------------------------------
     def train_from_paths(self, paths):

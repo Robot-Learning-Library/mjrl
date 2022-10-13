@@ -35,6 +35,8 @@ class DAPG(NPG):
                  lam_0=1.0,  # demo coef
                  lam_1=0.95, # decay coef
                  log_dir=None,
+                 save_data=None,
+                 discriminator_reward=False,
                  **kwargs,
                  ):
 
@@ -52,9 +54,15 @@ class DAPG(NPG):
         self.lam_1 = lam_1
         self.iter_count = 0.0
         if save_logs: self.logger = DataLog()
+        self.save_data = save_data
+        self.data_buffer = []
+        self.discriminator_reward = discriminator_reward
         self.writer = SummaryWriter(f"runs/{log_dir}")
 
     def train_from_paths(self, paths):
+        # save sample data during training
+        if self.save_data is not None:
+            self._save_data(paths)
 
         # Concatenate from all the trajectories
         observations = np.concatenate([path["observations"] for path in paths])

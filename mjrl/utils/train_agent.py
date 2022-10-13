@@ -130,7 +130,10 @@ def train_agent(job_name, agent, parser_args,
         N = num_traj if sample_mode == 'trajectories' else num_samples
         args = dict(N=N, sample_mode=sample_mode, gamma=gamma, gae_lambda=gae_lambda, num_cpu=num_cpu)
         stats = agent.train_step(**args, parser_args=parser_args, itr=i)  # env is not passed in, so create new env instances inside
-        train_curve[i] = stats[0]
+        if stats is not None:
+            train_curve[i] = stats[0]
+        else:
+            train_curve[i] = train_curve[i-1]
 
         if evaluation_rollouts is not None and evaluation_rollouts > 0:
             print("Performing evaluation rollouts ........")
