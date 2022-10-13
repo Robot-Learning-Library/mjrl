@@ -78,15 +78,14 @@ class Discriminator():
         return x
 
     def process_data(self, env_id, true_paths, fake_paths,):
-        use_latest_paths = 1000
 
         # Load samples
         if true_paths is not None:
             true_obs = np.concatenate([path["observations"] for path in true_paths])
             true_act = np.concatenate([path["actions"] for path in true_paths])
         if fake_paths is not None:
-            fake_obs = np.concatenate([path["observations"] for path in fake_paths[-use_latest_paths:]])
-            fake_act = np.concatenate([path["actions"] for path in fake_paths[-use_latest_paths:]])
+            fake_obs = np.concatenate([path["observations"] for path in fake_paths])
+            fake_act = np.concatenate([path["actions"] for path in fake_paths])
 
         # Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
         Tensor = torch.FloatTensor
